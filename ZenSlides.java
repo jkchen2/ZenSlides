@@ -1,23 +1,22 @@
+import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 
 public class ZenSlides {
 
-    String currentSubject = "", oldSubject = "";
-    int currentSlideNumber = 0, totalSlides = 0;
-    final double MAX_ANIMATION_DURATION = 100.;
-    final int DEFAULT_WIDTH = 800, DEFAULT_HEIGHT = 600;
+    private static String currentSubject = "", oldSubject = "";
+    private static int currentSlideNumber = 0, totalSlides = 0;
+    private static final double MAX_ANIMATION_DURATION = 100.;
+    private static final int DEFAULT_WIDTH = 800, DEFAULT_HEIGHT = 600;
+    private static BufferedImage[] slideCache = null;
+    private static boolean skipReleased = true; // Skip keys released
+    private static double animationTime = 0.; // Animation animationTime in seconds
 
-    int[] foregroundColor = {245, 245, 245}, // Grey 100
-          secondaryForegroundColor = {158, 158, 158}, // Grey 500
-          backgroundColor = {33, 33, 33}, // Grey 900
-          secondaryBackgroundColor = {66, 66, 66}; // Grey 800
-
-    String defaultFont = "Arial-20";
-    String monospaceFont = "Courier-20";
-
-    BufferedImage[] slideCache = null;
-
-    double animationTime = 0.; // Animation animationTime in seconds
+    public static int[] foregroundColor = {245, 245, 245}, // Grey 100
+                 secondaryForegroundColor = {158, 158, 158}, // Grey 500
+                 backgroundColor = {33, 33, 33}, // Grey 900
+                 secondaryBackgroundColor = {66, 66, 66}; // Grey 800
+    public static String defaultFont = "Arial-20";
+    public static String monospaceFont = "Courier-20";
 
     public void startSlides(int totalContentSlides) {
         startSlides(DEFAULT_WIDTH, DEFAULT_HEIGHT, Zen.DEFAULT_OPTIONS, totalContentSlides);
@@ -30,17 +29,46 @@ public class ZenSlides {
         Zen.flipBuffer();
         jumpTo(0); // Title
 
-        while (Zen.isRunning()) {
-            int rightAlignCenter = width - 16*6;
-            Zen.waitForClick();
-            int clickX = Zen.getMouseClickX();
-            int clickY = Zen.getMouseClickY(); // @byang18
+        int rightAlignCenter = width - 16*6;
+        long clickTime = 0, lastClickTime = 0;
+        int clickX;
+        int clickY;
+        boolean leftReleased = true;
 
-            if (clickX >= rightAlignCenter - 16*5 && clickX <= rightAlignCenter - 16*3 && clickY <= height - 16 && clickY >= height - 48) {
+        while (Zen.isRunning()) {
+
+            Zen.sleep(8);
+
+            clickTime = Zen.getMouseClickTime();
+            if (!Zen.isVirtualKeyPressed(KeyEvent.VK_LEFT))
+                leftReleased = true;
+            if (!(Zen.isVirtualKeyPressed(KeyEvent.VK_SPACE) ||
+                    Zen.isVirtualKeyPressed(KeyEvent.VK_RIGHT) ||
+                    clickTime != lastClickTime))
+                skipReleased = true;
+
+            if (clickTime != lastClickTime) {
+                clickX = Zen.getMouseClickX();
+                clickY = Zen.getMouseClickY(); // @byang18
+                lastClickTime = clickTime;
+            } else {
+                clickX = 0;
+                clickY = 0;
+            }
+
+            if ((clickX >= rightAlignCenter - 16*5 && clickX <= rightAlignCenter - 16*3 &&
+                    clickY <= height - 16 && clickY >= height - 48) ||
+                    (Zen.isVirtualKeyPressed(KeyEvent.VK_LEFT) && leftReleased)) {
+                leftReleased = false;
                 previousSlide();
-            } else if (clickX >= rightAlignCenter + 16*3 && clickX <= rightAlignCenter + 16*5 && clickY <= height - 16 && clickY >= height - 48) {
+            } else if (((clickX >= rightAlignCenter + 16*3 && clickX <= rightAlignCenter + 16*5 &&
+                    clickY <= height - 16 && clickY >= height - 48) ||
+                    Zen.isVirtualKeyPressed(KeyEvent.VK_SPACE) ||
+                    Zen.isVirtualKeyPressed(KeyEvent.VK_RIGHT)) && skipReleased) {
+                skipReleased = false;
                 nextSlide();
             }
+
         }
     }
 
@@ -81,17 +109,29 @@ public class ZenSlides {
             if (animate) {
                 animationTime = 0.;
                 boolean finished = false;
-                long clickTime = Zen.getMouseClickTime();
+                long clickTime = 0, lastClickTime = 0;
                 do {
-                    if (Zen.getMouseClickTime() > clickTime) { // Mouse skip
-                        animationTime = MAX_ANIMATION_DURATION;
-                    }
+
                     if (slideNumber > 0)
                         Zen.drawImage(slideCache[slideNumber - 1], 0, 0);
                     finished = drawSlide(slideNumber);
                     displayNavigation();
                     Zen.sleep(16); // Attempt 60 FPS
                     animationTime += 0.0625; // 1. in 1 second
+
+                    // Check for skips
+                    clickTime = Zen.getMouseClickTime();
+                    if (!(Zen.isVirtualKeyPressed(KeyEvent.VK_SPACE) ||
+                            Zen.isVirtualKeyPressed(KeyEvent.VK_RIGHT) ||
+                            lastClickTime != clickTime)) {
+                        skipReleased = true;
+                    } else if (skipReleased) {
+                        skipReleased = false;
+                        animationTime = MAX_ANIMATION_DURATION;
+                    } else {
+                        lastClickTime = clickTime;
+                    }
+
                 } while (!finished);
             } else {
                 animationTime = MAX_ANIMATION_DURATION;
@@ -121,7 +161,7 @@ public class ZenSlides {
             jumpTo(currentSlideNumber - 1);
     }
 
-    public void displayNavigation() {
+    private static void displayNavigation() {
         int height = Zen.getZenHeight(), width = Zen.getZenWidth();
         int rightAlignCenter = width - 16*6;
         Zen.setFont("Arial-30");
@@ -171,15 +211,19 @@ public class ZenSlides {
 
     }
 
+    public static void setSubject(String newSubject) {
+        currentSubject = newSubject;
+    }
+
     // Drawing helpers
 
-    public void clearScreen() {
+    public static void clearScreen() {
         setColor(backgroundColor);
         Zen.fillRect(0, 0, Zen.getZenWidth(), Zen.getZenHeight());
         setColor(foregroundColor);
     }
 
-    public void clearScreenAnimated(int direction) {
+    public static void clearScreenAnimated(int direction) {
         int startX = 0, startY = 0, width1 = 0, height1 = 0, width2 = 0, height2 = 0;
         int maxWidth = Zen.getZenWidth(), maxHeight = Zen.getZenHeight();
         int delta = 0;
@@ -203,7 +247,7 @@ public class ZenSlides {
         setColor(foregroundColor);
     }
 
-    public void setColor(int[] rgbValues) {
+    public static void setColor(int[] rgbValues) {
         try {
             assert rgbValues.length == 3;
             for (int v : rgbValues)
@@ -216,11 +260,19 @@ public class ZenSlides {
 
     // Animation helpers:
 
-    public double animatePercentage(double duration, double delay) {
+    public static double getAnimationTime() {
+        return animationTime;
+    }
+
+    public static boolean animationTimeout(double duration) {
+        return animationTime >= duration;
+    }
+
+    public static double animatePercentage(double duration, double delay) {
         return animatePercentage(duration, delay, 2);
     }
 
-    public double animatePercentage(double duration, double delay, int magnitude) {
+    public static double animatePercentage(double duration, double delay, int magnitude) {
 
         if (animationTime <= delay) // Animation hasn't started yet
             return 0.;
@@ -234,21 +286,21 @@ public class ZenSlides {
             return 1 - Math.pow(progressPercent - 1, 2 * magnitude);
     }
 
-    public int animateOffset() {
+    public static int animateOffset() {
         return animateOffset(2, 0);
     }
 
-    public int animateOffset(double duration, double delay) {
+    public static int animateOffset(double duration, double delay) {
         int defaultOffset = Zen.getZenWidth() * 2;
         return animateOffset(duration, delay, 2, defaultOffset);
     }
 
-    public int animateOffset(double duration, double delay, int magnitude, int maxOffset) {
+    public static int animateOffset(double duration, double delay, int magnitude, int maxOffset) {
         double percentage = animatePercentage(duration, delay, magnitude);
         return (int)(maxOffset*percentage - maxOffset);
     }
 
-    public void animateColor(double duration, double delay, int magnitude, int[] start, int[] finish) {
+    public static void animateColor(double duration, double delay, int magnitude, int[] start, int[] finish) {
         double percentage = animatePercentage(duration, delay, magnitude);
         int[] transitions = new int[3];
         for (int it = 0; it < 3; it++)
