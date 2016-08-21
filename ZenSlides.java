@@ -1,5 +1,8 @@
+import java.awt.Font;
+import java.awt.GraphicsEnvironment;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
+import java.io.File;
 
 public class ZenSlides {
 
@@ -12,11 +15,11 @@ public class ZenSlides {
     private static double animationTime = 0.; // Animation animationTime in seconds
 
     public static int[] foregroundColor = {245, 245, 245}, // Grey 100
-                 secondaryForegroundColor = {158, 158, 158}, // Grey 500
-                 backgroundColor = {33, 33, 33}, // Grey 900
-                 secondaryBackgroundColor = {66, 66, 66}; // Grey 800
-    public static String defaultFont = "Arial-20";
-    public static String monospaceFont = "Courier-20";
+                        secondaryForegroundColor = {158, 158, 158}, // Grey 500
+                        backgroundColor = {33, 33, 33}, // Grey 900
+                        secondaryBackgroundColor = {66, 66, 66}; // Grey 800
+    public static String defaultFont = "Arial-20"; // DejaVu Sans
+    public static String monospaceFont = "Courier New-20"; // DejaVu Sans Mono
 
     public void startSlides(int totalContentSlides) {
         startSlides(DEFAULT_WIDTH, DEFAULT_HEIGHT, Zen.DEFAULT_OPTIONS, totalContentSlides);
@@ -37,7 +40,9 @@ public class ZenSlides {
 
         while (Zen.isRunning()) {
 
-            Zen.sleep(8);
+            jumpTo(currentSlideNumber, false, false); // For interactive slides
+
+            Zen.sleep(16);
 
             clickTime = Zen.getMouseClickTime();
             if (!Zen.isVirtualKeyPressed(KeyEvent.VK_LEFT))
@@ -69,6 +74,17 @@ public class ZenSlides {
                 nextSlide();
             }
 
+        }
+    }
+
+    public static void loadFont(String fontName) {
+        try {
+            // from http://stackoverflow.com/questions/320542/how-to-get-the-path-of-a-running-jar-file
+            String classPath = new File(ZenSlides.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath()).toString();
+            GraphicsEnvironment environment = GraphicsEnvironment.getLocalGraphicsEnvironment();
+            environment.registerFont(Font.createFont(Font.TRUETYPE_FONT, new File(classPath + "/" + fontName)));
+        } catch (Exception e) {
+            System.out.println("Failed to load external font: " + fontName + ". Please make sure the font file is in the same directory as the ZenSlides.class file.");
         }
     }
 
@@ -148,6 +164,8 @@ public class ZenSlides {
             Zen.flipBuffer();
         }
 
+        setColor(foregroundColor);
+
         if (!recurse)
             oldSubject = currentSubject;
     }
@@ -180,10 +198,6 @@ public class ZenSlides {
         } else {
             Zen.drawText(currentSubject, 16, height - 20);
         }
-        Zen.fillRect(width/2, 0, 1, 800); // TODO: Remove these
-        Zen.fillRect(width/2 + width/4, 0, 1, 800); // TODO: Remove these
-        Zen.fillRect(width/2 - width/4, 0, 1, 800); // TODO: Remove these
-        Zen.fillRect(0, height - 32, 800, 1); // TODO: Remove these
         Zen.fillRect(rightAlignCenter - 16*5, height - 48, 32, 32);
         Zen.fillRect(rightAlignCenter + 16*3, height - 48, 32, 32);
 
@@ -226,8 +240,6 @@ public class ZenSlides {
     public static void clearScreenAnimated(int direction) {
         int startX = 0, startY = 0, width1 = 0, height1 = 0, width2 = 0, height2 = 0;
         int maxWidth = Zen.getZenWidth(), maxHeight = Zen.getZenHeight();
-        int delta = 0;
-        double percentage1 = 0., percentage2 = 0.;
         switch (direction) {
             case 1: // NS
                 width1 = maxWidth; width2 = maxWidth;
