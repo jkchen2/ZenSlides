@@ -81,8 +81,15 @@ public class ZenSlides {
         try {
             // from http://stackoverflow.com/questions/320542/how-to-get-the-path-of-a-running-jar-file
             String classPath = new File(ZenSlides.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath()).toString();
+
+            Font customFont = null;
             GraphicsEnvironment environment = GraphicsEnvironment.getLocalGraphicsEnvironment();
-            environment.registerFont(Font.createFont(Font.TRUETYPE_FONT, new File(classPath + "/" + fontName)));
+            try {
+                customFont = Font.createFont(Font.TRUETYPE_FONT, ZenSlides.class.getResourceAsStream("/" + fontName));
+            } catch (Exception e) {
+                customFont = Font.createFont(Font.TRUETYPE_FONT, new File(classPath + "/" + fontName));
+            }
+            environment.registerFont(customFont);
         } catch (Exception e) {
             System.out.println("Failed to load external font: " + fontName + ". Please make sure the font file is in the same directory as the ZenSlides.class file.");
         }
